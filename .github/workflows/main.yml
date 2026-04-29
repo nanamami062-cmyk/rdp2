@@ -1,0 +1,85 @@
+name: RDP-ULTRA-PERFORMANCE
+on:
+  workflow_dispatch:
+
+jobs:
+  rdp-deployment:
+    runs-on: windows-2025
+    timeout-minutes: 3600
+    steps:
+      - name: Security & Integrity Verification
+        run: |
+          # Encoded Verification Block
+          $encodedNotice = "Cj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQogQ29weXJpZ2h0IMKpIDIwMjYgWWFzc2luZS1Qcmltb3h4IHwgU2VjdXJlIFJEUCBFbnZpcm9ubWVudAogQWxsIHJpZ2h0cyByZXNlcnZlZC4gU3lzdGVtIFByZXBhcmVkIGZvciBFdGhpY2FsIEhhY2tpbmcuCj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQo="
+          $decodedNotice = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($encodedNotice))
+          Write-Host $decodedNotice
+          # Anti-tamper check
+          if ($decodedNotice -notlike "*Yassine*") { 
+              Write-Error "Integrity check failed: Copyright modified."
+              exit 1 
+          }
+
+      - name: System Performance Optimization
+        run: |
+          Write-Host "Optimizing system resources..."
+          # Stopping heavy non-essential background services to free up CPU/RAM
+          $services = @("SysMain", "WerSvc", "WSearch", "DiagTrack")
+          foreach ($svc in $services) {
+              Stop-Service -Name $svc -Force -ErrorAction SilentlyContinue
+          }
+          Write-Host "Performance mode enabled: Background noise reduced."
+
+      - name: Configure Advanced RDP Settings
+        run: |
+          Write-Host "Hardening RDP Configuration..."
+          $tsPath = 'HKLM:\System\CurrentControlSet\Control\Terminal Server'
+          $winPath = 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp'
+          
+          Set-ItemProperty -Path $tsPath -Name "fDenyTSConnections" -Value 0 -Force
+          Set-ItemProperty -Path $winPath -Name "UserAuthentication" -Value 0 -Force
+          Set-ItemProperty -Path $winPath -Name "SecurityLayer" -Value 1 -Force
+          
+          # Adding firewall rules for maximum accessibility
+          netsh advfirewall firewall set rule group="remote desktop" new enable=Yes
+          Restart-Service -Name TermService -Force
+
+      - name: Create Stealth Administrative User
+        run: |
+          $username = "SystemAgent"
+          $password = "Yassine@Secure2026"
+          $securePass = ConvertTo-SecureString $password -AsPlainText -Force
+          
+          Write-Host "Generating secure administrative account..."
+          if (-not (Get-LocalUser -Name $username -ErrorAction SilentlyContinue)) {
+              New-LocalUser -Name $username -Password $securePass -FullName "System Management Agent" -Description "Automated System Account"
+          }
+          Add-LocalGroupMember -Group "Administrators" -Member $username
+          Add-LocalGroupMember -Group "Remote Desktop Users" -Member $username
+
+      - name: Deploy Tailscale Network Tunnel
+        run: |
+          Write-Host "Downloading Tailscale..."
+          $msiPath = "$env:TEMP\tailscale.msi"
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-1.82.0-amd64.msi" -OutFile $msiPath
+          Start-Process msiexec.exe -ArgumentList "/i", "`"$msiPath`"", "/quiet", "/norestart" -Wait
+          
+          Write-Host "Establishing secure tunnel..."
+          & "$env:ProgramFiles\Tailscale\tailscale.exe" up --authkey=${{ secrets.TAILSCALE_AUTH_KEY }} --hostname=gh-node-$env:GITHUB_RUN_ID
+          
+          $ip = & "$env:ProgramFiles\Tailscale\tailscale.exe" ip -4
+          Write-Host "Your Secure RDP IP: $ip"
+          echo "TARGET_IP=$ip" >> $env:GITHUB_ENV
+
+      - name: Maintain Session & Monitor Health
+        run: |
+          Write-Host "`n================================"
+          Write-Host "RDP CONNECTION DETAILS"
+          Write-Host "IP Address: $env:TARGET_IP"
+          Write-Host "Username:   SystemAgent"
+          Write-Host "Password:   Yassine@Secure2026"
+          Write-Host "================================`n"
+          
+          # Efficient keep-alive loop with Memory Cleanup
+          while($true) {
+              [System.GC]::Collect() # Forces memory cleanup to keep the machine 'light'
+              $timeStamp = Get-Date -Format "HH:mm:
